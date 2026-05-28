@@ -1,40 +1,34 @@
-# HermesAudit — Smart Contract Scanner Powered by Hermes Agent
+# HermesAudit
+> Autonomous smart contract vulnerability scanner powered by Hermes Agent
 
-## What Is This?
-HermesAudit uses Hermes Agent's autonomous planning and tool-use system to scan
-Solidity smart contracts for security vulnerabilities — automatically.
+## Stack
+- **Frontend**: React 18 + Vite → deployed on Vercel
+- **Backend**: FastAPI → deployed on Render  
+- **AI**: Hermes Agent via OpenRouter (mistral-7b-instruct:free)
 
-Give it a .sol file. It finds reentrancy attacks, missing access controls,
-tx.origin abuse, and more. Then it generates a full audit report.
+## What It Detects
+Reentrancy · Missing Access Control · tx.origin Auth · Selfdestruct · Timestamp Dependence · Hardcoded Addresses
 
-## How It Works
-1. solidity_parser.py (custom Hermes tool) extracts contract structure
-2. audit_skill.md teaches Hermes the exact audit procedure
-3. SOUL.md makes Hermes think like a strict security auditor
-4. audit.py orchestrates everything and calls Hermes via OpenRouter
-5. The full audit report is saved to reports/
+## Run Locally
 
-## Quick Start
+### Backend
 ```bash
-# 1. Install Hermes Agent
-curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
-
-# 2. Set API key
-export OPENROUTER_API_KEY=your-key-here
-
-# 3. Run audit
-python audit.py contracts/sample.sol
+cd backend
+pip install -r requirements.txt
+export OPENROUTER_API_KEY=sk-or-your-key-here
+uvicorn main:app --reload
 ```
 
-## Sample Output
-[Paste your actual report output here after running it]
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## Built With
-- Hermes Agent by Nous Research
-- OpenRouter (mistral-7b-instruct:free)
-- Python 3.11
-- Solidity
+## Deploy
+- **Frontend**: Push to GitHub → Vercel auto-deploys from `frontend/` directory
+- **Backend**: Push to GitHub → Deploy on Render with `uvicorn main:app --host 0.0.0.0 --port 8000`
 
 ## Challenge
-Built for the Hermes Agent Challenge on DEV.to
-Tags: #hermesagentchallenge #devchallenge #agents #web3 #security
+Built for #hermesagentchallenge on DEV.to
