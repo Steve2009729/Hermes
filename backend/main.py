@@ -1,14 +1,23 @@
 import os
 import json
+import re
 from typing import Optional
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 import urllib.request
 import urllib.error
 from dotenv import load_dotenv
+import asyncio
 
 from parser import parse_contract
+from database import init_db, create_user, get_user_by_email
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    verify_token,
+)
 
 # Load environment variables
 load_dotenv()
@@ -29,14 +38,93 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 MODEL = "mistralai/mistral-7b-instruct:free"
 
 
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
 class AuditRequest(BaseModel):
     source_code: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
+
+
+async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
+    """Extract and verify JWT token from Authorization header"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization")
+    
+    token = authorization[7:]
+    email = verify_token(token)
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    return email
+
+
+@app.on_event("startup")
+async def startup():
+    """Initialize database on startup"""
+    await init_db()
 
 
 @app.get("/health")
 async def health():
     """Health check endpoint"""
     return {"status": "online", "service": "HermesAudit"}
+
+
+@app.post("/auth/signup")
+async def signup(request: SignupRequest):
+    """Create a new user account"""
+    if not re.match(r"^[^@]+@[^@]+\.[^@]+$", request.email):
+        return {"error": "Invalid email format"}
+    
+    if len(request.password) < 8:
+        return {"error": "Password must be at least 8 characters"}
+    
+    hashed_password = hash_password(request.password)
+    result = await create_user(request.email, hashed_password)
+    
+    if "error" in result:
+        return {"error": "Email already registered"}
+    
+    token = create_access_token({"sub": request.email})
+    return {"message": "Account created", "token": token}
+
+
+@app.post("/auth/login")
+async def login(request: LoginRequest):
+    """Authenticate a user and return JWT token"""
+    user = await get_user_by_email(request.email)
+    
+    if not user or not verify_password(request.password, user["hashed_password"]):
+        return {"error": "Invalid email or password"}
+    
+    token = create_access_token({"sub": user["email"]})
+    return {"message": "Login successful", "token": token}
+
+
+@app.get("/auth/me")
+async def get_current_user_info(current_user: str = Depends(get_current_user)):
+    """Get current user information"""
+    user = await get_user_by_email(current_user)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "email": user["email"],
+        "joined": user["created_at"]
+    }
+
 
 
 @app.post("/audit")

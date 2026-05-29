@@ -101,6 +101,7 @@ def parse_contract(source_code: str) -> Dict[str, Any]:
         "pragma_version": pragma[0] if pragma else "unknown",
         "contracts_found": contracts,
         "functions": [{"name": f[0], "visibility": f[2] or "unknown", "modifier": f[3] or "none"} for f in functions],
+        "total_functions": len(functions),
         "state_variables": len(state_vars),
         "pre_scan_flags": suspicious,
         "total_flags": len(suspicious)
